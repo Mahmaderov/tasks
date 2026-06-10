@@ -618,7 +618,16 @@ function gasRequest(action, payload){
     const cbName = 'cb_' + Date.now();
     const script = document.createElement('script');
     let url = GAS_URL + '?action=' + action + '&callback=' + cbName;
-    if(payload) url += '&payload=' + encodeURIComponent(JSON.stringify(payload));
+    if(payload){
+      const encoded = encodeURIComponent(JSON.stringify(payload));
+      if(url.length + encoded.length > 7500){
+        // Too large — send without attachments
+        const light = payload.map(r => r.map(c => typeof c === 'string' && c.length > 500 ? '' : c));
+        url += '&payload=' + encodeURIComponent(JSON.stringify(light));
+      } else {
+        url += '&payload=' + encoded;
+      }
+    }
     window[cbName] = function(data){
       delete window[cbName];
       document.body.removeChild(script);
@@ -664,11 +673,13 @@ function parseRows(rows){
 }
 function parseLine(line){const res=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}else if(ch===','&&!inQ){res.push(cur);cur='';}else cur+=ch;}res.push(cur);return res;}
 function toRows(){
+  // Strip dataUrls (base64 files) before sending to Sheets — too large for URL
+  function stripAtts(atts){ return (atts||[]).map(a=>({name:a.name,ext:a.ext,size:a.size,date:a.date,isImage:a.isImage,dataUrl:''})); }
   const h=[['TYPE','ID','COL','TITLE','DESC','PERSON','DEPT','PRIORITY','STATUS','START','DEADLINE','CLOSED','ATT']];
-  const t=tasks.map(t=>['TASK',t.id,t.colId,t.title,t.desc||'',t.person||'',t.dept||'',t.priority||'',t.status||'',t.start||'',t.deadline||'',t.closed||'',JSON.stringify((t.attachments||[]).map(a=>({name:a.name,ext:a.ext,size:a.size,date:a.date,isImage:a.isImage,dataUrl:a.dataUrl})))]);
+  const t=tasks.map(t=>['TASK',t.id,t.colId,t.title,t.desc||'',t.person||'',t.dept||'',t.priority||'',t.status||'',t.start||'',t.deadline||'',t.closed||'',JSON.stringify(stripAtts(t.attachments))]);
   const e=employees.map(e=>['EMP',e.id,e.name,e.dept,e.role,'','','','','','','',String(e.active)]);
   const d=departments.map(d=>['DEPT','',d,'','','','','','','','','','']);
-  const a=archived.map(t=>['ARC',t.id,t.colId,t.title,t.desc||'',t.person||'',t.dept||'',t.priority||'',t.status||'',t.start||'',t.archivedAt||'',JSON.stringify((t.attachments||[]).map(a=>({name:a.name,ext:a.ext,size:a.size,date:a.date,isImage:a.isImage,dataUrl:a.dataUrl})))]);
+  const a=archived.map(t=>['ARC',t.id,t.colId,t.title,t.desc||'',t.person||'',t.dept||'',t.priority||'',t.status||'',t.start||'',t.archivedAt||'',JSON.stringify(stripAtts(t.attachments))]);
   return [...h,...t,...e,...d,...a];
 }
 
