@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Задачи команды — Тоҷиктелеком</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0052CC;min-height:100vh;overflow-x:auto}
+
+/* HEADER */
+.header{background:rgba(0,0,0,0.28);padding:0 16px;display:flex;align-items:center;gap:10px;height:48px;position:sticky;top:0;z-index:100}
+.board-title{color:#fff;font-size:15px;font-weight:700}
+.h-sep{width:1px;height:20px;background:rgba(255,255,255,0.3);margin:0 2px}
+.hbtn{background:rgba(255,255,255,0.18);border:none;color:#fff;padding:5px 12px;border-radius:4px;font-size:13px;cursor:pointer;white-space:nowrap;transition:background .15s}
+.hbtn:hover{background:rgba(255,255,255,0.32)}
+.sync-wrap{display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,.8);margin-left:auto}
+.sdot{width:7px;height:7px;border-radius:50%;background:#57D9A3;flex-shrink:0}
+.sdot.syncing{background:#FFD600;animation:pulse 1s infinite}
+.sdot.error{background:#FF5630}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* FILTER BAR */
+.filter-bar{background:rgba(0,0,0,0.15);padding:6px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:40px}
+.fb-label{font-size:12px;color:rgba(255,255,255,.7);font-weight:500;white-space:nowrap}
+.person-chip{background:rgba(255,255,255,0.18);border:none;color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;cursor:pointer;transition:background .15s;white-space:nowrap;display:flex;align-items:center;gap:5px}
+.person-chip:hover{background:rgba(255,255,255,0.32)}
+.person-chip.active{background:#fff;color:#0052CC;font-weight:600}
+.prio-chip{background:rgba(255,255,255,0.18);border:none;color:#fff;padding:4px 10px;border-radius:20px;font-size:12px;cursor:pointer;transition:background .15s;white-space:nowrap}
+.prio-chip.active{background:#fff;font-weight:600}
+.prio-chip.ph.active{color:#C0392B}
+.prio-chip.pm.active{color:#7B6300}
+.prio-chip.pl.active{color:#1E6B3C}
+.clear-filter{background:none;border:none;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;padding:4px 6px}
+.clear-filter:hover{color:#fff}
+
+/* BOARD */
+.board{display:flex;gap:12px;padding:12px 16px;align-items:flex-start;min-height:calc(100vh - 96px)}
+.column{background:#EBECF0;border-radius:8px;width:272px;min-width:272px;max-height:calc(100vh - 116px);display:flex;flex-direction:column}
+.col-header{padding:10px 12px;display:flex;align-items:center;justify-content:space-between}
+.col-title{font-size:14px;font-weight:700;color:#172B4D}
+.col-count{background:rgba(9,30,66,.12);color:#5E6C84;font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px}
+.col-cards{padding:0 8px;overflow-y:auto;flex:1}
+.card{background:#fff;border-radius:4px;padding:10px 12px;margin-bottom:8px;cursor:pointer;box-shadow:0 1px 0 rgba(9,30,66,.25);transition:box-shadow .15s,transform .1s;position:relative}
+.card:hover{box-shadow:0 4px 8px rgba(9,30,66,.2);transform:translateY(-1px)}
+.card.dimmed{opacity:.3}
+.card-title{font-size:14px;color:#172B4D;line-height:1.4;margin-bottom:8px}
+.card-footer{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cbadge{font-size:11px;color:#5E6C84;padding:2px 5px;border-radius:3px;background:rgba(9,30,66,.06)}
+.cbadge.od{background:#FFEBE6;color:#BF2600}
+.cav{width:24px;height:24px;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;color:#fff;margin-left:auto}
+.pbar{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:4px 0 0 4px}
+.ph{background:#EB5A46}.pm{background:#F2D600}.pl{background:#61BD4F}
+.add-card-btn{display:flex;align-items:center;gap:6px;padding:8px 10px;margin:0 4px 8px;border-radius:4px;color:#5E6C84;font-size:13px;cursor:pointer;border:none;background:none;width:calc(100% - 8px);text-align:left}
+.add-card-btn:hover{background:rgba(9,30,66,.08);color:#172B4D}
+.acf{padding:0 8px 8px;display:none}
+.acf.open{display:block}
+.acta{width:100%;border:none;border-radius:4px;padding:8px;font-size:14px;min-height:60px;resize:none;box-shadow:0 1px 3px rgba(0,0,0,.2);outline:none;font-family:inherit;color:#172B4D}
+.acactions{display:flex;gap:6px;margin-top:6px;align-items:center}
+.btnblue{background:#0052CC;color:#fff;border:none;padding:6px 14px;border-radius:4px;font-size:13px;font-weight:500;cursor:pointer}
+.btnblue:hover{background:#0065FF}
+.btnx{background:none;border:none;padding:6px;cursor:pointer;color:#5E6C84;font-size:18px;line-height:1}
+
+/* CARD MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.54);z-index:300;overflow-y:auto;padding:48px 0}
+.modal-bg.open{display:block}
+.modal{background:#EBECF0;border-radius:8px;width:768px;max-width:95vw;margin:0 auto;padding:16px;position:relative;display:grid;grid-template-columns:1fr 185px;gap:0 16px}
+.mclose{position:absolute;top:10px;right:10px;background:none;border:none;font-size:20px;cursor:pointer;color:#5E6C84;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px}
+.mclose:hover{background:rgba(9,30,66,.08)}
+.mtitle{font-size:18px;font-weight:700;color:#172B4D;background:none;border:none;width:100%;resize:none;padding:4px 8px;border-radius:4px;font-family:inherit;line-height:1.4;min-height:44px}
+.mtitle:focus{outline:none;background:#fff;box-shadow:inset 0 0 0 2px #0052CC}
+.msec{margin-top:16px}
+.msectitle{font-size:12px;font-weight:700;color:#5E6C84;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.mdesc{background:#fff;border-radius:4px;padding:10px;font-size:14px;color:#172B4D;width:100%;min-height:80px;border:none;resize:vertical;font-family:inherit;line-height:1.5}
+.mdesc:focus{outline:none;box-shadow:0 0 0 2px #0052CC inset}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mitem{background:#fff;border-radius:4px;padding:8px 10px}
+.mlbl{font-size:11px;color:#5E6C84;font-weight:600;margin-bottom:3px}
+.msel,.min{width:100%;border:none;font-size:13px;color:#172B4D;background:none;outline:none;font-family:inherit;cursor:pointer;padding:0}
+.min{border-bottom:1px solid #DFE1E6}
+.min:focus{border-color:#0052CC}
+.attlist{display:flex;flex-direction:column;gap:8px}
+.attitem{display:flex;align-items:center;gap:10px;background:#fff;border-radius:4px;padding:8px 10px}
+.attthumb{width:48px;height:36px;border-radius:3px;background:#DFE1E6;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;color:#5E6C84;font-weight:700;overflow:hidden}
+.attthumb img{width:100%;height:100%;object-fit:cover}
+.attinfo{flex:1;min-width:0}
+.attname{font-size:13px;color:#172B4D;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.attmeta{font-size:11px;color:#5E6C84;margin-top:1px}
+.attdel{background:none;border:none;color:#5E6C84;cursor:pointer;font-size:16px;padding:2px 6px}
+.attdel:hover{color:#BF2600}
+.btnattach{display:flex;align-items:center;gap:6px;background:#DFE1E6;border:none;padding:6px 12px;border-radius:4px;font-size:13px;color:#172B4D;cursor:pointer;margin-top:8px}
+.btnattach:hover{background:#C1C7D0}
+.slbl{font-size:11px;color:#5E6C84;font-weight:600;text-transform:uppercase;margin-bottom:6px;margin-top:16px}
+.slbl:first-child{margin-top:0}
+.sbtn{display:flex;align-items:center;gap:6px;background:rgba(9,30,66,.08);border:none;padding:6px 12px;border-radius:4px;font-size:13px;color:#172B4D;cursor:pointer;width:100%;text-align:left;margin-bottom:4px}
+.sbtn:hover{background:rgba(9,30,66,.16)}
+.sbtn.danger{color:#BF2600}
+.sbtn.danger:hover{background:#FFEBE6}
+.sbadge{display:inline-block;padding:3px 10px;border-radius:3px;font-size:12px;font-weight:600}
+.snew{background:#E4F0FF;color:#0052CC}.swip{background:#FFFCE6;color:#7B6300}
+.sdone{background:#E3FCEF;color:#006644}.shold{background:#F4F5F7;color:#42526E}.scancel{background:#FFEBE6;color:#BF2600}
+.av0{background:#0052CC}.av1{background:#00875A}.av2{background:#FF5630}.av3{background:#6554C0}.av4{background:#FF8B00}.av5{background:#00B8D9}
+
+/* ===== PASSWORD MODAL ===== */
+.pwd-overlay{
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 600;
+  align-items: center;
+  justify-content: center;
+}
+.pwd-overlay.open{
+  display: flex;
+}
+.pwd-box{
+  background: #fff;
+  border-radius: 14px;
+  padding: 36px 32px 28px;
+  width: 340px;
+  max-width: 92vw;
+  text-align: center;
+  box-shadow: 0 24px 64px rgba(0,0,0,.35);
+}
+.pwd-lock-icon{font-size: 40px; margin-bottom: 14px}
+.pwd-title{font-size: 18px; font-weight: 700; color: #172B4D; margin-bottom: 4px}
+.pwd-sub{font-size: 13px; color: #5E6C84; margin-bottom: 22px}
+.pwd-field-wrap{position: relative; margin-bottom: 8px}
+.pwd-field{
+  width: 100%;
+  border: 2px solid #DFE1E6;
+  border-radius: 8px;
+  padding: 10px 42px 10px 14px;
+  font-size: 16px;
+  font-family: inherit;
+  color: #172B4D;
+  outline: none;
+  letter-spacing: 0.08em;
+  transition: border-color .2s;
+  background: #fff;
+}
+.pwd-field:focus{border-color: #0052CC}
+.pwd-field.shake{animation: shake .35s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
+.pwd-eye{
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; font-size: 18px; line-height:1; color: #5E6C84; padding: 0;
+}
+.pwd-error{font-size: 12px; color: #E74C3C; min-height: 18px; margin-bottom: 10px; text-align: left}
+.pwd-submit{
+  width: 100%; background: #0052CC; color: #fff; border: none;
+  padding: 11px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .15s;
+}
+.pwd-submit:hover{background: #0065FF}
+.pwd-submit:disabled{background: #aaa; cursor: not-allowed}
+.pwd-footer{margin-top: 14px; display: flex; justify-content: space-between; align-items: center}
+.pwd-cancel-btn{background:none;border:none;color:#5E6C84;font-size:13px;cursor:pointer;padding:4px}
+.pwd-cancel-btn:hover{color:#172B4D}
+.pwd-lock-msg{font-size:12px;color:#E74C3C;margin-top:8px;min-height:16px}
+
+/* Change password section inside pwd modal */
+.pwd-change-section{display:none;margin-top:20px;padding-top:18px;border-top:1px solid #EBECF0;text-align:left}
+.pwd-change-section.visible{display:block}
+.pwd-change-title{font-size:13px;font-weight:600;color:#172B4D;margin-bottom:12px}
+
+/* ADMIN PANEL */
+.admin-panel{display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.5);overflow-y:auto;padding:40px 0}
+.admin-panel.open{display:block}
+.admin-box{background:#fff;border-radius:10px;width:820px;max-width:95vw;margin:0 auto;overflow:hidden}
+.admin-header{background:#172B4D;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+.admin-title{color:#fff;font-size:16px;font-weight:700}
+.admin-hbtns{display:flex;align-items:center;gap:8px}
+.admin-logout{background:rgba(255,255,255,.15);border:none;color:rgba(255,255,255,.8);padding:5px 12px;border-radius:4px;font-size:12px;cursor:pointer}
+.admin-logout:hover{background:rgba(255,255,255,.25);color:#fff}
+.admin-close-btn{background:none;border:none;color:rgba(255,255,255,.7);font-size:22px;cursor:pointer;line-height:1;padding:0}
+.admin-close-btn:hover{color:#fff}
+.admin-tabs{display:flex;border-bottom:1px solid #DFE1E6;background:#F4F5F7}
+.atab{padding:12px 20px;font-size:13px;font-weight:500;color:#5E6C84;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;border-left:none;border-right:none;border-top:none}
+.atab:hover{color:#172B4D}
+.atab.active{color:#0052CC;border-bottom-color:#0052CC}
+.admin-body{padding:24px}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+.section-title{font-size:14px;font-weight:700;color:#172B4D;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.emp-table{width:100%;border-collapse:collapse;font-size:13px}
+.emp-table th{background:#F4F5F7;padding:8px 12px;text-align:left;font-weight:600;color:#5E6C84;font-size:11px;text-transform:uppercase;border-bottom:1px solid #DFE1E6}
+.emp-table td{padding:10px 12px;border-bottom:1px solid #F4F5F7;vertical-align:middle}
+.emp-table tr:hover td{background:#F8F9FC}
+.emp-av{width:32px;height:32px;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;color:#fff}
+.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
+.tag-dept{background:#E4F0FF;color:#0052CC}
+.tag-active{background:#E3FCEF;color:#006644}
+.tag-inactive{background:#F4F5F7;color:#42526E}
+.icon-btn{background:none;border:none;cursor:pointer;color:#5E6C84;font-size:15px;padding:4px 6px;border-radius:4px}
+.icon-btn:hover{background:#F4F5F7;color:#172B4D}
+.icon-btn.del:hover{background:#FFEBE6;color:#BF2600}
+.add-row-form{background:#F8F9FC;border:1px solid #DFE1E6;border-radius:6px;padding:16px;margin-top:16px}
+.add-row-title{font-size:13px;font-weight:600;color:#172B4D;margin-bottom:12px}
+.form-row-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px}
+.fi{width:100%;border:1px solid #DFE1E6;border-radius:6px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;color:#172B4D}
+.fi:focus{border-color:#0052CC}
+.fselect{width:100%;border:1px solid #DFE1E6;border-radius:6px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;color:#172B4D;background:#fff}
+.frow-actions{display:flex;gap:8px}
+.btngreen{background:#00875A;color:#fff;border:none;padding:7px 16px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer}
+.btngreen:hover{background:#006644}
+.btngray{background:#F4F5F7;color:#42526E;border:none;padding:7px 14px;border-radius:6px;font-size:13px;cursor:pointer}
+.btngray:hover{background:#DFE1E6}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+.stat-box{background:#F4F5F7;border-radius:8px;padding:16px}
+.stat-num{font-size:28px;font-weight:700;color:#172B4D;line-height:1}
+.stat-lbl{font-size:12px;color:#5E6C84;margin-top:4px}
+.stat-box.blue .stat-num{color:#0052CC}
+.stat-box.green .stat-num{color:#006644}
+.stat-box.red .stat-num{color:#BF2600}
+.emp-stat-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #F4F5F7}
+.emp-stat-row:last-child{border-bottom:none}
+.prog-wrap{flex:1;margin:0 12px;height:6px;background:#DFE1E6;border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;background:#0052CC;border-radius:3px}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #F4F5F7}
+.settings-row:last-child{border-bottom:none}
+.settings-lbl{font-size:13px;color:#172B4D;font-weight:500}
+.settings-sub{font-size:12px;color:#5E6C84;margin-top:2px}
+.toggle{position:relative;display:inline-block;width:36px;height:20px}
+.toggle input{opacity:0;width:0;height:0}
+.tslider{position:absolute;inset:0;background:#DFE1E6;border-radius:20px;cursor:pointer;transition:.3s}
+.tslider:before{content:'';position:absolute;width:14px;height:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+.toggle input:checked+.tslider{background:#0052CC}
+.toggle input:checked+.tslider:before{transform:translateX(16px)}
+
+.arc-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid #DFE1E6;border-radius:6px;margin-bottom:8px;background:#fff}
+.arc-item:hover{background:#F8F9FC}
+.arc-pbar{width:4px;height:40px;border-radius:2px;flex-shrink:0}
+.arc-info{flex:1;min-width:0}
+.arc-title{font-size:13px;font-weight:500;color:#172B4D;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arc-meta{font-size:11px;color:#5E6C84;margin-top:3px;display:flex;gap:8px;flex-wrap:wrap}
+.arc-actions{display:flex;gap:6px;flex-shrink:0}
+.arc-restore{background:#E4F0FF;border:none;color:#0052CC;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer;font-weight:500}
+.arc-restore:hover{background:#DEEBFF}
+.arc-del{background:#FFEBE6;border:none;color:#BF2600;padding:4px 8px;border-radius:4px;font-size:12px;cursor:pointer}
+.arc-del:hover{background:#FFCCC7}
+.arc-empty{text-align:center;padding:40px 20px;color:#5E6C84;font-size:13px}
+
+/* LOADING */
+.loading-ov{position:fixed;inset:0;background:rgba(0,40,100,.88);z-index:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.loading-ov.hidden{display:none}
+.spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ldtext{color:#fff;font-size:15px;font-weight:500}
+.ldsub{color:rgba(255,255,255,.6);font-size:12px}
+.col-cards::-webkit-scrollbar{width:4px}
+.col-cards::-webkit-scrollbar-thumb{background:rgba(9,30,66,.2);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-ov" id="loadingOv">
+  <div class="spinner"></div>
+  <div class="ldtext" id="ldText">Загрузка задач...</div>
+  <div class="ldsub">Подключение к Google Sheets</div>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" style="flex-shrink:0"><rect x="2" y="5" width="6" height="14" rx="1"/><rect x="10" y="5" width="6" height="9" rx="1"/><rect x="18" y="5" width="4" height="6" rx="1"/></svg>
+  <span class="board-title">Маркетинг и PR — Тоҷиктелеком</span>
+  <div class="h-sep"></div>
+  <button class="hbtn" onclick="openAdmin()">⚙ Администратор</button>
+  <div class="sync-wrap">
+    <div class="sdot" id="sdot"></div>
+    <span id="slbl">Загрузка...</span>
+    <button class="hbtn" style="font-size:12px;padding:3px 8px;margin-left:4px" onclick="loadFromSheets()">↻</button>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" id="filterBar">
+  <span class="fb-label">👤</span>
+  <button class="person-chip active" data-person="all" onclick="setPerson('all',this)">Все</button>
+  <div class="h-sep" style="background:rgba(255,255,255,.2)"></div>
+  <button class="prio-chip ph" data-prio="Высокий" onclick="togglePrio('Высокий',this)">● Высокий</button>
+  <button class="prio-chip pm" data-prio="Средний" onclick="togglePrio('Средний',this)">● Средний</button>
+  <button class="prio-chip pl" data-prio="Низкий" onclick="togglePrio('Низкий',this)">● Низкий</button>
+  <button class="clear-filter" onclick="clearFilters()">✕ Сбросить</button>
+</div>
+
+<!-- BOARD -->
+<div class="board" id="board"></div>
+
+<!-- CARD MODAL -->
+<div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <button class="mclose" onclick="closeModal()">✕</button>
+    <div>
+      <textarea class="mtitle" id="m-title" rows="2" placeholder="Название задачи"></textarea>
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+        <span id="m-sbadge" class="sbadge snew">Новая</span>
+        <span style="font-size:12px;color:#5E6C84" id="m-col-lbl"></span>
+      </div>
+      <div class="msec"><div class="msectitle">Описание</div>
+        <textarea class="mdesc" id="m-desc" placeholder="Добавить описание..."></textarea>
+      </div>
+      <div class="msec">
+        <div class="mgrid">
+          <div class="mitem"><div class="mlbl">Ответственный</div><select class="msel" id="m-person"><option value="">— не назначен —</option></select></div>
+          <div class="mitem"><div class="mlbl">Отдел</div><select class="msel" id="m-dept"></select></div>
+          <div class="mitem"><div class="mlbl">Приоритет</div><select class="msel" id="m-priority"><option>Высокий</option><option selected>Средний</option><option>Низкий</option></select></div>
+          <div class="mitem"><div class="mlbl">Статус</div><select class="msel" id="m-status" onchange="updateSBadge()"><option>Новая</option><option>В работе</option><option>Готово</option><option>На паузе</option><option>Отменена</option></select></div>
+          <div class="mitem"><div class="mlbl">Дата начала</div><input class="min" id="m-start" type="date"></div>
+          <div class="mitem"><div class="mlbl">Дедлайн</div><input class="min" id="m-deadline" type="date"></div>
+        </div>
+      </div>
+      <div class="msec"><div class="msectitle">Вложения</div>
+        <div class="attlist" id="attList"></div>
+        <button class="btnattach" onclick="document.getElementById('fileIn').click()">📎 Прикрепить файл</button>
+        <input type="file" id="fileIn" style="display:none" multiple onchange="handleFiles(event)">
+      </div>
+    </div>
+    <div>
+      <div class="slbl">Действия</div>
+      <button class="sbtn" onclick="document.getElementById('fileIn').click()">📎 Добавить файл</button>
+      <button class="sbtn" onclick="moveCardPrompt()">→ Переместить</button>
+      <div class="slbl" style="margin-top:20px">Опасная зона</div>
+      <button class="sbtn danger" onclick="archiveCard()">🗑 Архивировать</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PASSWORD MODAL ========== -->
+<div class="pwd-overlay" id="pwdOverlay">
+  <div class="pwd-box">
+    <div class="pwd-lock-icon">🔐</div>
+    <div class="pwd-title">Панель администратора</div>
+    <div class="pwd-sub" id="pwdSub">Введите пароль для доступа</div>
+
+    <div class="pwd-field-wrap">
+      <input class="pwd-field" id="pwdField" type="password" placeholder="Пароль"
+        onkeydown="if(event.key==='Enter')submitPwd()">
+      <button class="pwd-eye" onclick="toggleEye()" tabindex="-1">👁</button>
+    </div>
+    <div class="pwd-error" id="pwdError"></div>
+
+    <button class="pwd-submit" id="pwdSubmit" onclick="submitPwd()">Войти</button>
+
+    <div class="pwd-footer">
+      <button class="pwd-cancel-btn" onclick="closePwdOverlay()">Отмена</button>
+      <span class="pwd-lock-msg" id="pwdLockMsg"></span>
+    </div>
+
+    <!-- Change password section (shown separately) -->
+    <div class="pwd-change-section" id="pwdChangeSection">
+      <div class="pwd-change-title">🔑 Сменить пароль администратора</div>
+      <div class="pwd-field-wrap" style="margin-bottom:8px">
+        <input class="pwd-field" id="newPwd1" type="password" placeholder="Новый пароль">
+      </div>
+      <div class="pwd-field-wrap" style="margin-bottom:12px">
+        <input class="pwd-field" id="newPwd2" type="password" placeholder="Повторите пароль">
+      </div>
+      <button class="pwd-submit" style="background:#00875A" onclick="savePwd()">Сохранить новый пароль</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="admin-panel" id="adminPanel" onclick="if(event.target===this)closeAdmin()">
+  <div class="admin-box">
+    <div class="admin-header">
+      <span class="admin-title">⚙ Панель администратора</span>
+      <div class="admin-hbtns">
+        <button class="admin-logout" onclick="adminLogout()">🔒 Выйти</button>
+        <button class="admin-close-btn" onclick="closeAdmin()">✕</button>
+      </div>
+    </div>
+    <div class="admin-tabs">
+      <button class="atab active" onclick="switchTab('employees',this)">👥 Сотрудники</button>
+      <button class="atab" onclick="switchTab('stats',this)">📊 Статистика</button>
+      <button class="atab" onclick="switchTab('archive',this)">🗂 Архив</button>
+      <button class="atab" onclick="switchTab('settings',this)">🔧 Настройки</button>
+    </div>
+    <div class="admin-body">
+
+      <!-- EMPLOYEES -->
+      <div class="tab-pane active" id="tab-employees">
+        <div class="section-title">
+          <span>Список сотрудников</span>
+          <button class="btnblue" style="font-size:12px;padding:5px 12px" onclick="toggleAddEmp()">+ Добавить</button>
+        </div>
+        <table class="emp-table">
+          <thead><tr><th>Сотрудник</th><th>Отдел</th><th>Должность</th><th>Задач</th><th>Статус</th><th></th></tr></thead>
+          <tbody id="empBody"></tbody>
+        </table>
+        <div class="add-row-form" id="addEmpForm" style="display:none">
+          <div class="add-row-title">Новый сотрудник</div>
+          <div class="form-row-grid">
+            <input class="fi" id="e-name" placeholder="ФИО (Фамилия И.О.)">
+            <select class="fselect" id="e-dept"></select>
+            <input class="fi" id="e-role" placeholder="Должность">
+          </div>
+          <div class="frow-actions">
+            <button class="btngreen" onclick="addEmployee()">Сохранить</button>
+            <button class="btngray" onclick="toggleAddEmp()">Отмена</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATS -->
+      <div class="tab-pane" id="tab-stats">
+        <div class="stats-grid" id="statsGrid"></div>
+        <div class="section-title"><span>Нагрузка по сотрудникам</span></div>
+        <div id="empStats"></div>
+      </div>
+
+      <!-- ARCHIVE -->
+      <div class="tab-pane" id="tab-archive">
+        <div class="section-title">
+          <span>Архивированные задачи</span>
+          <button class="btngray" style="font-size:12px" onclick="clearArchive()">🗑 Очистить архив</button>
+        </div>
+        <div id="archiveSearch" style="margin-bottom:14px">
+          <input class="fi" id="archiveQ" placeholder="🔍 Поиск по архиву..." oninput="renderArchiveTab()" style="max-width:300px">
+        </div>
+        <div id="archiveList"></div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="tab-pane" id="tab-settings">
+        <div class="section-title"><span>Отделы</span>
+          <button class="btnblue" style="font-size:12px;padding:5px 12px" onclick="toggleAddDept()">+ Добавить</button>
+        </div>
+        <div id="deptList"></div>
+        <div class="add-row-form" id="addDeptForm" style="display:none;margin-top:12px">
+          <div class="add-row-title">Новый отдел</div>
+          <div style="display:flex;gap:10px;margin-bottom:12px">
+            <input class="fi" id="d-name" placeholder="Название отдела" style="flex:1">
+          </div>
+          <div class="frow-actions">
+            <button class="btngreen" onclick="addDept()">Сохранить</button>
+            <button class="btngray" onclick="toggleAddDept()">Отмена</button>
+          </div>
+        </div>
+
+        <div class="section-title" style="margin-top:28px"><span>Настройки доски</span></div>
+        <div class="settings-row">
+          <div><div class="settings-lbl">Автосохранение в Google Sheets</div><div class="settings-sub">Синхронизация при каждом изменении</div></div>
+          <label class="toggle"><input type="checkbox" checked id="autoSyncToggle"><span class="tslider"></span></label>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-lbl">ID Google Sheets файла</div><div class="settings-sub" id="sheetIdDisplay" style="font-family:monospace;font-size:11px"></div></div>
+          <button class="btngray" onclick="changeSheetId()" style="font-size:12px">Изменить</button>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-lbl">Пароль администратора</div><div class="settings-sub">Изменить пароль для входа</div></div>
+          <button class="btngray" onclick="openChangePwd()" style="font-size:12px">Сменить пароль</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────
+let SHEET_ID = localStorage.getItem('sheetId') || '1ERuwMRAX5TbLePZJ6tvhS_EdyQ8-w1GkZAWs2f7XFrA';
+const COLS = [{id:'backlog',title:'К выполнению'},{id:'inprogress',title:'В работе'},{id:'review',title:'На проверке'},{id:'done',title:'Готово'}];
+const SC = {'Новая':'snew','В работе':'swip','Готово':'sdone','На паузе':'shold','Отменена':'scancel'};
+const PC = {'Высокий':'ph','Средний':'pm','Низкий':'pl'};
+const C2S = {backlog:'Новая',inprogress:'В работе',review:'На паузе',done:'Готово'};
+const S2C = {'Новая':'backlog','В работе':'inprogress','На паузе':'review','Готово':'done','Отменена':'backlog'};
+const AVC = ['av0','av1','av2','av3','av4','av5'];
+const DEFAULT_PWD = 'admin2025';
+
+let tasks=[], employees=[], departments=[], archived=[];
+let editId=null, openCol=null, dragId=null, syncT=null;
+let filterPerson='all', filterPrios=new Set();
+
+// ─── UTILS ────────────────────────────────────────────────
+const today=()=>new Date().toISOString().slice(0,10);
+function toIn(s){if(!s)return '';const p=s.split('.');return p.length===3?`${p[2]}-${p[1]}-${p[0]}`:s;}
+function frIn(s){if(!s)return '';const p=s.split('-');return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:s;}
+function pd(s){if(!s)return null;const p=s.split('.');return p.length===3?new Date(p[2],p[1]-1,p[0]):new Date(s);}
+function fd(s){if(!s)return '';const d=pd(s);if(!d||isNaN(d))return s;return d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'});}
+function isOD(t){if(!t.deadline||t.colId==='done')return false;return pd(t.deadline)<new Date(today());}
+function gid(){return 'T'+Date.now()+Math.random().toString(36).slice(2,5);}
+function ini(n){if(!n)return '?';const p=n.trim().split(' ');return p.length>=2?p[0][0]+p[1][0]:n.slice(0,2).toUpperCase();}
+function avc(n){if(!n)return 'av0';let h=0;for(const c of n)h=(h*31+c.charCodeAt(0))%AVC.length;return AVC[h];}
+function fsize(b){if(b<1024)return b+'Б';if(b<1048576)return Math.round(b/1024)+'КБ';return (b/1048576).toFixed(1)+'МБ';}
+
+// ─── PASSWORD ─────────────────────────────────────────────
+function hashStr(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h)+s.charCodeAt(i)>>>0;return h.toString(36);}
+function getHash(){return localStorage.getItem('adminHash')||hashStr(DEFAULT_PWD);}
+
+let pwdFailCount=0, pwdLockEnd=0, pwdLockTimer=null;
+
+function openAdmin(){
+  if(sessionStorage.getItem('adminOk')==='1'){showAdminPanel();return;}
+  // reset form state
+  const f=document.getElementById('pwdField');
+  f.value=''; f.type='password';
+  document.getElementById('pwdError').textContent='';
+  document.getElementById('pwdLockMsg').textContent='';
+  document.getElementById('pwdChangeSection').classList.remove('visible');
+  document.getElementById('pwdSub').textContent='Введите пароль для доступа';
+  document.getElementById('pwdSubmit').style.display='block';
+  document.getElementById('pwdOverlay').classList.add('open');
+  setTimeout(()=>f.focus(),120);
+  checkLock();
+}
+
+function closePwdOverlay(){
+  document.getElementById('pwdOverlay').classList.remove('open');
+  clearTimeout(pwdLockTimer);
+}
+
+function toggleEye(){
+  const f=document.getElementById('pwdField');
+  f.type=f.type==='password'?'text':'password';
+}
+
+function checkLock(){
+  const now=Date.now();
+  if(pwdLockEnd>now){
+    const sec=Math.ceil((pwdLockEnd-now)/1000);
+    document.getElementById('pwdSubmit').disabled=true;
+    document.getElementById('pwdField').disabled=true;
+    document.getElementById('pwdLockMsg').textContent=`Заблокировано на ${sec} сек.`;
+    pwdLockTimer=setTimeout(checkLock,1000);
+  } else {
+    document.getElementById('pwdSubmit').disabled=false;
+    document.getElementById('pwdField').disabled=false;
+    document.getElementById('pwdLockMsg').textContent='';
+    if(pwdFailCount>0&&pwdFailCount<5)
+      document.getElementById('pwdError').textContent=`Неверный пароль. Попыток осталось: ${5-pwdFailCount}`;
+  }
+}
+
+function submitPwd(){
+  if(pwdLockEnd>Date.now())return;
+  const val=document.getElementById('pwdField').value;
+  if(!val){document.getElementById('pwdError').textContent='Введите пароль';return;}
+  if(hashStr(val)===getHash()){
+    pwdFailCount=0;
+    sessionStorage.setItem('adminOk','1');
+    closePwdOverlay();
+    showAdminPanel();
+  } else {
+    pwdFailCount++;
+    const f=document.getElementById('pwdField');
+    f.classList.add('shake'); f.value='';
+    setTimeout(()=>f.classList.remove('shake'),400);
+    if(pwdFailCount>=5){
+      pwdLockEnd=Date.now()+30000;
+      document.getElementById('pwdError').textContent='';
+      checkLock();
+    } else {
+      document.getElementById('pwdError').textContent=`Неверный пароль. Попыток осталось: ${5-pwdFailCount}`;
+    }
+  }
+}
+
+function openChangePwd(){
+  // Open pwd modal in change-password mode
+  document.getElementById('pwdField').value='';
+  document.getElementById('pwdField').type='password';
+  document.getElementById('pwdError').textContent='';
+  document.getElementById('pwdLockMsg').textContent='';
+  document.getElementById('newPwd1').value='';
+  document.getElementById('newPwd2').value='';
+  document.getElementById('pwdSub').textContent='Сменить пароль администратора';
+  document.getElementById('pwdSubmit').style.display='none';
+  document.getElementById('pwdChangeSection').classList.add('visible');
+  closeAdmin();
+  document.getElementById('pwdOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('newPwd1').focus(),120);
+}
+
+function savePwd(){
+  const p1=document.getElementById('newPwd1').value;
+  const p2=document.getElementById('newPwd2').value;
+  if(!p1||p1.length<4){alert('Пароль должен быть не менее 4 символов');return;}
+  if(p1!==p2){alert('Пароли не совпадают');return;}
+  localStorage.setItem('adminHash',hashStr(p1));
+  alert('✓ Пароль успешно изменён');
+  closePwdOverlay();
+}
+
+// ─── ADMIN PANEL ──────────────────────────────────────────
+function showAdminPanel(){
+  renderEmpTab(); renderStatsTab(); renderSettingsTab(); renderArchiveTab();
+  document.getElementById('adminPanel').classList.add('open');
+}
+function closeAdmin(){document.getElementById('adminPanel').classList.remove('open');}
+function adminLogout(){sessionStorage.removeItem('adminOk');closeAdmin();}
+
+function switchTab(tab,el){
+  document.querySelectorAll('.atab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  if(tab==='stats')renderStatsTab();
+  if(tab==='settings')renderSettingsTab();
+  if(tab==='archive')renderArchiveTab();
+}
+
+// ─── SYNC ─────────────────────────────────────────────────
+function setSS(state,text){
+  const d=document.getElementById('sdot'),l=document.getElementById('slbl');
+  d.className='sdot'+(state==='syncing'?' syncing':state==='error'?' error':'');
+  l.textContent=text;
+}
+function showLoad(t){document.getElementById('ldText').textContent=t;document.getElementById('loadingOv').classList.remove('hidden');}
+function hideLoad(){document.getElementById('loadingOv').classList.add('hidden');}
+
+async function apiCall(prompt){
+  const r=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:8000,
+      mcp_servers:[{type:'url',url:'https://drivemcp.googleapis.com/mcp/v1',name:'gdrive'}],
+      messages:[{role:'user',content:prompt}]})
+  });
+  if(!r.ok)throw new Error('API '+r.status);
+  const d=await r.json();
+  return d.content.filter(b=>b.type==='text').map(b=>b.text).join('\n');
+}
+
+async function loadFromSheets(){
+  showLoad('Загрузка из Google Sheets...');setSS('syncing','Загрузка...');
+  try{
+    const txt=await apiCall(`Read the Google Sheets file with ID "${SHEET_ID}". Return ONLY raw CSV content, no markdown, no explanation.`);
+    const p=parseCSV(txt.trim());
+    if(p.tasks.length>0){tasks=p.tasks;employees=p.employees.length?p.employees:defaultEmps();departments=p.departments.length?p.departments:defaultDepts();archived=p.archived||[];}
+    else loadLocal();
+    saveLocal();
+  }catch(e){console.error(e);loadLocal();setSS('error','Локальный кэш');}
+  renderAll();hideLoad();setSS('ok','Синхронизировано');
+}
+
+function parseCSV(csv){
+  const lines=csv.split('\n').filter(l=>l.trim());
+  if(lines.length<2)return{tasks:[],employees:[],departments:[]};
+  const rows=lines.slice(1).map(parseLine);
+  const tasks=rows.filter(c=>c[0]==='TASK').map(c=>{let a=[];try{if(c[12])a=JSON.parse(c[12]);}catch(e){}return{id:c[1]||gid(),colId:c[2]||'backlog',title:c[3]||'',desc:c[4]||'',person:c[5]||'',dept:c[6]||'',priority:c[7]||'Средний',status:c[8]||'Новая',start:c[9]||'',deadline:c[10]||'',closed:c[11]||'',attachments:a};}).filter(t=>t.title);
+  const employees=rows.filter(c=>c[0]==='EMP').map(c=>({id:c[1]||gid(),name:c[2]||'',dept:c[3]||'',role:c[4]||'',active:c[5]!=='false'})).filter(e=>e.name);
+  const departments=rows.filter(c=>c[0]==='DEPT').map(c=>c[2]).filter(Boolean);
+  const archived=rows.filter(c=>c[0]==='ARC').map(c=>{let a=[];try{if(c[12])a=JSON.parse(c[12]);}catch(e){}return{id:c[1]||gid(),colId:c[2]||'backlog',title:c[3]||'',desc:c[4]||'',person:c[5]||'',dept:c[6]||'',priority:c[7]||'',status:c[8]||'',start:c[9]||'',deadline:c[10]||'',archivedAt:c[11]||'',attachments:a};}).filter(t=>t.title);
+  return{tasks,employees,departments,archived};
+}
+function parseLine(line){const res=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}else if(ch===','&&!inQ){res.push(cur);cur='';}else cur+=ch;}res.push(cur);return res;}
+function toCSV(){
+  const h=[['TYPE','ID','COL','TITLE','DESC','PERSON','DEPT','PRIORITY','STATUS','START','DEADLINE','CLOSED','ATT']];
+  const t=tasks.map(t=>['TASK',t.id,t.colId,t.title,t.desc||'',t.person||'',t.dept||'',t.priority||'',t.status||'',t.start||'',t.deadline||'',t.closed||'',JSON.stringify((t.attachments||[]).map(a=>({name:a.name,ext:a.ext,size:a.size,date:a.date,isImage:a.isImage,dataUrl:a.dataUrl})))]);
+  const e=employees.map(e=>['EMP',e.id,e.name,e.dept,e.role,'','','','','','','',String(e.active)]);
+  const d=departments.map(d=>['DEPT','',d,'','','','','','','','','','']);
+  const a=archived.map(t=>['ARC',t.id,t.colId,t.title,t.desc||'',t.person||'',t.dept||'',t.priority||'',t.status||'',t.start||'',t.deadline||'',t.archivedAt||'',JSON.stringify((t.attachments||[]).map(a=>({name:a.name,ext:a.ext,size:a.size,date:a.date,isImage:a.isImage,dataUrl:a.dataUrl})))]);
+  return[...h,...t,...e,...d,...a].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+}
+async function saveToSheets(){
+  clearTimeout(syncT);syncT=setTimeout(async()=>{
+    setSS('syncing','Сохранение...');saveLocal();
+    const tog=document.getElementById('autoSyncToggle');
+    if(tog&&!tog.checked){setSS('ok','Локально');return;}
+    try{await apiCall(`Update Google Sheets ID "${SHEET_ID}". Clear and write this CSV silently:\n\n${toCSV()}`);setSS('ok','Сохранено ✓');}
+    catch(e){setSS('error','Только локально');}
+  },1500);
+}
+function saveLocal(){try{localStorage.setItem('tele_kanban',JSON.stringify({tasks,employees,departments,archived}));}catch(e){}}
+function loadLocal(){
+  try{const s=localStorage.getItem('tele_kanban');if(s){const d=JSON.parse(s);tasks=d.tasks||[];employees=d.employees||defaultEmps();departments=d.departments||defaultDepts();archived=d.archived||[];return;}}catch(e){}
+  tasks=defaultTasks();employees=defaultEmps();departments=defaultDepts();archived=[];
+}
+function defaultDepts(){return['Маркетинг','PR','Digital','Видео','Дизайн'];}
+function defaultEmps(){return[
+  {id:gid(),name:'Рустамов А.',dept:'Маркетинг',role:'Руководитель отдела',active:true},
+  {id:gid(),name:'Камолова Д.',dept:'PR',role:'PR-менеджер',active:true},
+  {id:gid(),name:'Назаров Б.',dept:'Digital',role:'SMM-специалист',active:true},
+  {id:gid(),name:'Турсунов К.',dept:'Видео',role:'Видеограф',active:true},
+];}
+function defaultTasks(){return[
+  {id:gid(),colId:'inprogress',title:'Сценарий ролика к 30-летию',desc:'Финальная версия с хронометражом',person:'Рустамов А.',dept:'Маркетинг',priority:'Высокий',status:'В работе',start:'01.06.2026',deadline:'15.06.2026',attachments:[]},
+  {id:gid(),colId:'done',title:'Пресс-релиз о футбольном спонсорстве',desc:'',person:'Камолова Д.',dept:'PR',priority:'Высокий',status:'Готово',start:'05.06.2026',deadline:'10.06.2026',attachments:[]},
+  {id:gid(),colId:'backlog',title:'Обновление страниц в соцсетях',desc:'Шапка, контакты, публикации',person:'Назаров Б.',dept:'Digital',priority:'Средний',status:'Новая',start:'',deadline:'20.06.2026',attachments:[]},
+  {id:gid(),colId:'backlog',title:'Брендинг стенда на ICT WEEK',desc:'Ждём подтверждения площади',person:'Рустамов А.',dept:'Маркетинг',priority:'Средний',status:'На паузе',start:'',deadline:'25.06.2026',attachments:[]},
+  {id:gid(),colId:'inprogress',title:'Видеосъёмка матча Таджикистан–Индия',desc:'Контент для соцсетей',person:'Турсунов К.',dept:'Видео',priority:'Высокий',status:'В работе',start:'10.06.2026',deadline:'12.06.2026',attachments:[]},
+];}
+
+// ─── RENDER ───────────────────────────────────────────────
+function renderAll(){renderFilterBar();renderBoard();populateSelects();}
+
+function renderFilterBar(){
+  const bar=document.getElementById('filterBar');
+  bar.querySelectorAll('.person-chip').forEach(c=>c.remove());
+  const sep=bar.querySelector('.h-sep');
+  const allChip=document.createElement('button');
+  allChip.className='person-chip'+(filterPerson==='all'?' active':'');
+  allChip.dataset.person='all';
+  allChip.onclick=function(){setPerson('all',this);};
+  allChip.textContent='Все';
+  bar.insertBefore(allChip,sep);
+  employees.filter(e=>e.active).forEach(e=>{
+    const chip=document.createElement('button');
+    chip.className='person-chip'+(filterPerson===e.name?' active':'');
+    chip.dataset.person=e.name;
+    chip.onclick=function(){setPerson(e.name,this);};
+    chip.innerHTML=`<span style="width:18px;height:18px;border-radius:50%;font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;color:#fff;background:var(--ac,#0052CC)" class="${avc(e.name)}">${ini(e.name)}</span>${e.name}`;
+    bar.insertBefore(chip,sep);
+  });
+  bar.querySelectorAll('.prio-chip').forEach(c=>c.classList.toggle('active',filterPrios.has(c.dataset.prio)));
+}
+
+function setPerson(name,el){filterPerson=name;document.querySelectorAll('.person-chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderBoard();}
+function togglePrio(p,el){filterPrios.has(p)?filterPrios.delete(p):filterPrios.add(p);el.classList.toggle('active');renderBoard();}
+function clearFilters(){filterPerson='all';filterPrios.clear();renderFilterBar();renderBoard();}
+function cardVisible(t){if(filterPerson!=='all'&&t.person!==filterPerson)return false;if(filterPrios.size>0&&!filterPrios.has(t.priority))return false;return true;}
+
+function renderBoard(){
+  const board=document.getElementById('board');board.innerHTML='';
+  COLS.forEach(col=>{
+    const ct=tasks.filter(t=>t.colId===col.id);
+    const div=document.createElement('div');div.className='column';
+    div.innerHTML=`<div class="col-header"><span class="col-title">${col.title}</span><span class="col-count">${ct.length}</span></div>
+    <div class="col-cards" id="col-${col.id}">${ct.map(t=>renderCard(t)).join('')}</div>
+    <button class="add-card-btn" onclick="openAddForm('${col.id}')">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg> Добавить карточку
+    </button>
+    <div class="acf" id="af-${col.id}">
+      <textarea class="acta" id="at-${col.id}" placeholder="Введите название..." onkeydown="addKey(event,'${col.id}')"></textarea>
+      <div class="acactions"><button class="btnblue" onclick="quickAdd('${col.id}')">Добавить</button><button class="btnx" onclick="closeAddForm('${col.id}')">✕</button></div>
+    </div>`;
+    board.appendChild(div);
+    const ce=div.querySelector('.col-cards');
+    ce.addEventListener('dragover',e=>e.preventDefault());
+    ce.addEventListener('drop',e=>{e.preventDefault();dropCard(col.id);});
+  });
+}
+
+function renderCard(t){
+  const od=isOD(t),ac=(t.attachments||[]).length,dim=!cardVisible(t);
+  return`<div class="card${dim?' dimmed':''}" onclick="openCard('${t.id}')" draggable="true" ondragstart="dragId='${t.id}'" ondragend="dragId=null">
+  <div class="pbar ${PC[t.priority]||'pm'}"></div>
+  <div class="card-title">${t.title}</div>
+  <div class="card-footer">
+    ${t.deadline?`<span class="cbadge ${od?'od':''}">${od?'⚠ ':''}${fd(t.deadline)}</span>`:''}
+    ${ac?`<span class="cbadge">📎 ${ac}</span>`:''}
+    ${t.person?`<span class="cav ${avc(t.person)}" title="${t.person}">${ini(t.person)}</span>`:''}
+  </div></div>`;
+}
+
+function dropCard(nc){if(!dragId)return;const t=tasks.find(x=>x.id===dragId);if(t&&t.colId!==nc){t.colId=nc;t.status=C2S[nc]||t.status;saveToSheets();renderBoard();}}
+
+function openAddForm(col){if(openCol)closeAddForm(openCol);openCol=col;document.getElementById('af-'+col).classList.add('open');setTimeout(()=>document.getElementById('at-'+col).focus(),50);}
+function closeAddForm(col){const f=document.getElementById('af-'+col);if(f){f.classList.remove('open');const ta=document.getElementById('at-'+col);if(ta)ta.value='';}if(openCol===col)openCol=null;}
+function addKey(e,col){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();quickAdd(col);}if(e.key==='Escape')closeAddForm(col);}
+function quickAdd(col){const ta=document.getElementById('at-'+col);const title=ta.value.trim();if(!title)return;tasks.push({id:gid(),colId:col,title,desc:'',person:filterPerson!=='all'?filterPerson:'',dept:'',priority:'Средний',status:C2S[col]||'Новая',start:frIn(today()),deadline:'',attachments:[]});saveToSheets();closeAddForm(col);renderBoard();}
+
+function populateSelects(){
+  const ps=document.getElementById('m-person'),cv=ps.value;
+  ps.innerHTML='<option value="">— не назначен —</option>';
+  employees.filter(e=>e.active).forEach(e=>{const o=document.createElement('option');o.value=e.name;o.textContent=e.name;ps.appendChild(o);});
+  if(cv)ps.value=cv;
+  const ds=document.getElementById('m-dept'),cd=ds.value;
+  ds.innerHTML='';
+  departments.forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=d;ds.appendChild(o);});
+  if(cd)ds.value=cd;
+  const ed=document.getElementById('e-dept');
+  if(ed){ed.innerHTML='';departments.forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=d;ed.appendChild(o);});}
+}
+
+function openCard(id){
+  editId=id;const t=tasks.find(x=>x.id===id);if(!t)return;
+  populateSelects();
+  document.getElementById('m-title').value=t.title;
+  document.getElementById('m-desc').value=t.desc||'';
+  document.getElementById('m-person').value=t.person||'';
+  document.getElementById('m-dept').value=t.dept||'';
+  document.getElementById('m-priority').value=t.priority||'Средний';
+  document.getElementById('m-status').value=t.status||'Новая';
+  document.getElementById('m-start').value=toIn(t.start);
+  document.getElementById('m-deadline').value=toIn(t.deadline);
+  document.getElementById('m-col-lbl').textContent='Колонка: '+(COLS.find(c=>c.id===t.colId)||{}).title;
+  updateSBadge();renderAtts(t.attachments||[]);
+  document.getElementById('modalBg').classList.add('open');
+}
+function closeModal(){
+  if(editId){const t=tasks.find(x=>x.id===editId);if(t){t.title=document.getElementById('m-title').value.trim()||t.title;t.desc=document.getElementById('m-desc').value;t.person=document.getElementById('m-person').value;t.dept=document.getElementById('m-dept').value;t.priority=document.getElementById('m-priority').value;t.status=document.getElementById('m-status').value;t.start=frIn(document.getElementById('m-start').value);t.deadline=frIn(document.getElementById('m-deadline').value);t.colId=S2C[t.status]||t.colId;saveToSheets();renderBoard();}}
+  document.getElementById('modalBg').classList.remove('open');editId=null;
+}
+function updateSBadge(){const s=document.getElementById('m-status').value,b=document.getElementById('m-sbadge');b.textContent=s;b.className='sbadge '+(SC[s]||'snew');}
+function moveCardPrompt(){const t=tasks.find(x=>x.id===editId);if(!t)return;const ch=prompt('Переместить в:\n'+COLS.map((c,i)=>`${i+1}. ${c.title}`).join('\n'));const idx=parseInt(ch)-1;if(idx>=0&&idx<COLS.length){t.colId=COLS[idx].id;document.getElementById('m-col-lbl').textContent='Колонка: '+COLS[idx].title;}}
+function archiveCard(){
+  if(!confirm('Архивировать карточку?'))return;
+  const t=tasks.find(x=>x.id===editId);
+  if(t){
+    t.archivedAt=new Date().toLocaleDateString('ru-RU');
+    archived.push(t);
+    tasks=tasks.filter(x=>x.id!==editId);
+    saveToSheets();
+  }
+  closeModal();renderBoard();
+}
+
+function renderAtts(atts){
+  const l=document.getElementById('attList');
+  if(!atts||!atts.length){l.innerHTML='<div style="font-size:13px;color:#5E6C84;padding:4px 0">Нет вложений</div>';return;}
+  l.innerHTML=atts.map((a,i)=>`<div class="attitem"><div class="attthumb">${a.isImage?`<img src="${a.dataUrl}" alt="">`:`<span>${a.ext||'FILE'}</span>`}</div><div class="attinfo"><div class="attname">${a.name}</div><div class="attmeta">${a.size} · ${a.date}</div><a href="${a.dataUrl}" download="${a.name}" style="font-size:11px;color:#0052CC">Скачать</a></div><button class="attdel" onclick="removeAtt(${i})">✕</button></div>`).join('');
+}
+function handleFiles(e){
+  const t=tasks.find(x=>x.id===editId);if(!t)return;if(!t.attachments)t.attachments=[];
+  const files=Array.from(e.target.files);let done=0;
+  files.forEach(file=>{const r=new FileReader();r.onload=ev=>{const ext=file.name.split('.').pop().toLowerCase();const isImage=['jpg','jpeg','png','gif','webp','svg'].includes(ext);t.attachments.push({name:file.name,ext:ext.toUpperCase(),size:fsize(file.size),date:new Date().toLocaleDateString('ru-RU'),dataUrl:ev.target.result,isImage});done++;if(done===files.length){saveToSheets();renderAtts(t.attachments);renderBoard();}};r.readAsDataURL(file);});
+  e.target.value='';
+}
+function removeAtt(idx){const t=tasks.find(x=>x.id===editId);if(!t||!t.attachments)return;t.attachments.splice(idx,1);saveToSheets();renderAtts(t.attachments);renderBoard();}
+
+// ADMIN TABS
+function renderEmpTab(){
+  const tb=document.getElementById('empBody');
+  if(!employees.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:#5E6C84;padding:20px">Нет сотрудников</td></tr>';return;}
+  tb.innerHTML=employees.map((e,i)=>`<tr>
+    <td><div style="display:flex;align-items:center;gap:10px"><div class="emp-av ${avc(e.name)}">${ini(e.name)}</div><div><div style="font-weight:500;font-size:13px">${e.name}</div></div></div></td>
+    <td><span class="tag tag-dept">${e.dept}</span></td>
+    <td style="font-size:13px;color:#5E6C84">${e.role||'—'}</td>
+    <td style="font-size:13px;font-weight:600">${tasks.filter(t=>t.person===e.name&&t.status!=='Готово').length}</td>
+    <td><span class="tag ${e.active?'tag-active':'tag-inactive'}" style="cursor:pointer" onclick="toggleEmpActive(${i})">${e.active?'Активен':'Неактивен'}</span></td>
+    <td><button class="icon-btn" onclick="editEmp(${i})">✏️</button><button class="icon-btn del" onclick="delEmp(${i})">🗑</button></td>
+  </tr>`).join('');
+}
+function renderStatsTab(){
+  const total=tasks.length,active=tasks.filter(t=>t.status==='В работе').length,done=tasks.filter(t=>t.status==='Готово').length,od=tasks.filter(isOD).length;
+  document.getElementById('statsGrid').innerHTML=`<div class="stat-box blue"><div class="stat-num">${total}</div><div class="stat-lbl">Всего задач</div></div><div class="stat-box green"><div class="stat-num">${done}</div><div class="stat-lbl">Завершено</div></div><div class="stat-box red"><div class="stat-num">${od}</div><div class="stat-lbl">Просрочено</div></div>`;
+  const max=Math.max(1,...employees.map(e=>tasks.filter(t=>t.person===e.name).length));
+  document.getElementById('empStats').innerHTML=employees.map(e=>{const cnt=tasks.filter(t=>t.person===e.name).length;return`<div class="emp-stat-row"><div style="display:flex;align-items:center;gap:8px;min-width:140px"><div class="emp-av ${avc(e.name)}" style="width:28px;height:28px">${ini(e.name)}</div><span style="font-size:13px;font-weight:500">${e.name}</span></div><div class="prog-wrap"><div class="prog-fill" style="width:${Math.round(cnt/max*100)}%"></div></div><span style="font-size:13px;font-weight:600;min-width:24px;text-align:right">${cnt}</span></div>`;}).join('');
+}
+function renderSettingsTab(){
+  document.getElementById('sheetIdDisplay').textContent=SHEET_ID;
+  document.getElementById('deptList').innerHTML=departments.map((d,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #F4F5F7"><span style="font-size:13px">${d}</span><button class="icon-btn del" onclick="delDept(${i})">🗑</button></div>`).join('');
+}
+
+function renderArchiveTab(){
+  const q=(document.getElementById('archiveQ')||{}).value||'';
+  const list=archived.filter(t=>!q||t.title.toLowerCase().includes(q.toLowerCase())||t.person.toLowerCase().includes(q.toLowerCase()));
+  const el=document.getElementById('archiveList');
+  if(!list.length){
+    el.innerHTML=`<div class="arc-empty">${archived.length===0?'📭 Архив пуст — сюда попадают архивированные карточки':'🔍 Ничего не найдено'}</div>`;
+    return;
+  }
+  el.innerHTML=list.map((t,i)=>{
+    const realIdx=archived.indexOf(t);
+    const pc=PC[t.priority]||'pm';
+    const pcolor={'ph':'#EB5A46','pm':'#F2D600','pl':'#61BD4F'}[pc]||'#DFE1E6';
+    return`<div class="arc-item">
+      <div class="arc-pbar" style="background:${pcolor}"></div>
+      <div class="arc-info">
+        <div class="arc-title" title="${t.title}">${t.title}</div>
+        <div class="arc-meta">
+          ${t.person?`<span>👤 ${t.person}</span>`:''}
+          ${t.dept?`<span>🏢 ${t.dept}</span>`:''}
+          ${t.deadline?`<span>📅 ${t.deadline}</span>`:''}
+          <span style="color:#aaa">Архивировано: ${t.archivedAt||'—'}</span>
+        </div>
+      </div>
+      <div class="arc-actions">
+        <button class="arc-restore" onclick="restoreCard(${realIdx})">↩ Восстановить</button>
+        <button class="arc-del" onclick="deleteFromArchive(${realIdx})" title="Удалить навсегда">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function restoreCard(idx){
+  const t=archived[idx];
+  if(!t)return;
+  t.colId=S2C[t.status]||'backlog';
+  delete t.archivedAt;
+  tasks.push(t);
+  archived.splice(idx,1);
+  saveToSheets();renderBoard();renderArchiveTab();
+}
+
+function deleteFromArchive(idx){
+  if(!confirm('Удалить навсегда? Это действие нельзя отменить.'))return;
+  archived.splice(idx,1);
+  saveToSheets();renderArchiveTab();
+}
+
+function clearArchive(){
+  if(!archived.length){alert('Архив уже пуст');return;}
+  if(!confirm(`Удалить все ${archived.length} архивных задач навсегда?`))return;
+  archived=[];saveToSheets();renderArchiveTab();
+}
+
+function toggleAddEmp(){const f=document.getElementById('addEmpForm');f.style.display=f.style.display==='none'?'block':'none';}
+function addEmployee(){
+  const name=document.getElementById('e-name').value.trim();
+  if(!name)return alert('Введите ФИО');
+  employees.push({id:gid(),name,dept:document.getElementById('e-dept').value,role:document.getElementById('e-role').value.trim(),active:true});
+  saveToSheets();renderEmpTab();renderFilterBar();populateSelects();
+  document.getElementById('e-name').value='';document.getElementById('e-role').value='';
+  toggleAddEmp();
+}
+function editEmp(i){
+  const e=employees[i];
+  const name=prompt('ФИО:',e.name);if(!name)return;
+  const dept=prompt('Отдел:',e.dept);
+  const role=prompt('Должность:',e.role);
+  employees[i]={...e,name:name.trim(),dept:dept||e.dept,role:(role||'').trim()};
+  saveToSheets();renderEmpTab();renderFilterBar();populateSelects();
+}
+function delEmp(i){if(!confirm('Удалить сотрудника?'))return;employees.splice(i,1);saveToSheets();renderEmpTab();renderFilterBar();populateSelects();}
+function toggleEmpActive(i){employees[i].active=!employees[i].active;saveToSheets();renderEmpTab();renderFilterBar();}
+
+function toggleAddDept(){const f=document.getElementById('addDeptForm');f.style.display=f.style.display==='none'?'block':'none';}
+function addDept(){const name=document.getElementById('d-name').value.trim();if(!name)return;departments.push(name);saveToSheets();renderSettingsTab();populateSelects();document.getElementById('d-name').value='';toggleAddDept();}
+function delDept(i){if(!confirm('Удалить отдел?'))return;departments.splice(i,1);saveToSheets();renderSettingsTab();populateSelects();}
+function changeSheetId(){const id=prompt('ID Google Sheets файла:',SHEET_ID);if(id&&id.trim()){SHEET_ID=id.trim();localStorage.setItem('sheetId',SHEET_ID);saveLocal();renderSettingsTab();alert('ID обновлён.');}}
+
+// ─── INIT ─────────────────────────────────────────────────
+loadFromSheets();
+</script>
+</body>
+</html>
