@@ -611,34 +611,30 @@ function setSS(state,text){
 function showLoad(t){document.getElementById('ldText').textContent=t;document.getElementById('loadingOv').classList.remove('hidden');}
 function hideLoad(){document.getElementById('loadingOv').classList.add('hidden');}
 
-async function apiCall(prompt){
-  const r=await fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:8000,
-      mcp_servers:[{type:'url',url:'https://drivemcp.googleapis.com/mcp/v1',name:'gdrive'}],
-      messages:[{role:'user',content:prompt}]})
-  });
-  if(!r.ok)throw new Error('API '+r.status);
-  const d=await r.json();
-  return d.content.filter(b=>b.type==='text').map(b=>b.text).join('\n');
-}
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbypy1cH0KQhIHlazhigfCN9aiawIc0oV9guJ5NtIJrPScPPDQQO_XAIQTL6wevosIVK8g/exec';
 
 async function loadFromSheets(){
-  showLoad('Загрузка из Google Sheets...');setSS('syncing','Загрузка...');
+  showLoad('Загрузка данных...');setSS('syncing','Загрузка...');
   try{
-    const txt=await apiCall(`Read the Google Sheets file with ID "${SHEET_ID}". Return ONLY raw CSV content, no markdown, no explanation.`);
-    const p=parseCSV(txt.trim());
-    if(p.tasks.length>0){tasks=p.tasks;employees=p.employees.length?p.employees:defaultEmps();departments=p.departments.length?p.departments:defaultDepts();archived=p.archived||[];}
-    else loadLocal();
+    const r = await fetch(GAS_URL + '?action=read');
+    const json = await r.json();
+    if(json.ok && json.data && json.data.length > 1){
+      const p = parseRows(json.data);
+      if(p.tasks.length>0){
+        tasks=p.tasks;
+        employees=p.employees.length?p.employees:defaultEmps();
+        departments=p.departments.length?p.departments:defaultDepts();
+        archived=p.archived||[];
+      } else loadLocal();
+    } else loadLocal();
     saveLocal();
   }catch(e){console.error(e);loadLocal();setSS('error','Локальный кэш');}
   renderAll();hideLoad();setSS('ok','Синхронизировано');
 }
 
-function parseCSV(csv){
-  const lines=csv.split('\n').filter(l=>l.trim());
-  if(lines.length<2)return{tasks:[],employees:[],departments:[]};
-  const rows=lines.slice(1).map(parseLine);
+function parseRows(rows){
+  if(!rows||rows.length<2)return{tasks:[],employees:[],departments:[],archived:[]};
+  rows=rows.slice(1);
   const tasks=rows.filter(c=>c[0]==='TASK').map(c=>{let a=[];try{if(c[12])a=JSON.parse(c[12]);}catch(e){}return{id:c[1]||gid(),colId:c[2]||'backlog',title:c[3]||'',desc:c[4]||'',person:c[5]||'',dept:c[6]||'',priority:c[7]||'Средний',status:c[8]||'Новая',start:c[9]||'',deadline:c[10]||'',closed:c[11]||'',attachments:a};}).filter(t=>t.title);
   const employees=rows.filter(c=>c[0]==='EMP').map(c=>({id:c[1]||gid(),name:c[2]||'',dept:c[3]||'',role:c[4]||'',active:c[5]!=='false'})).filter(e=>e.name);
   const departments=rows.filter(c=>c[0]==='DEPT').map(c=>c[2]).filter(Boolean);
@@ -646,6 +642,15 @@ function parseCSV(csv){
   return{tasks,employees,departments,archived};
 }
 function parseLine(line){const res=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}else if(ch===','&&!inQ){res.push(cur);cur='';}else cur+=ch;}res.push(cur);return res;}
+function toRows(){
+  const h=[['TYPE','ID','COL','TITLE','DESC','PERSON','DEPT','PRIORITY','STATUS','START','DEADLINE','CLOSED','ATT']];
+  const t=tasks.map(t=>['TASK',t.id,t.colId,t.title,t.desc||'',t.person||'',t.dept||'',t.priority||'',t.status||'',t.start||'',t.deadline||'',t.closed||'',JSON.stringify((t.attachments||[]).map(a=>({name:a.name,ext:a.ext,size:a.size,date:a.date,isImage:a.isImage,dataUrl:a.dataUrl})))]);
+  const e=employees.map(e=>['EMP',e.id,e.name,e.dept,e.role,'','','','','','','',String(e.active)]);
+  const d=departments.map(d=>['DEPT','',d,'','','','','','','','','','']);
+  const a=archived.map(t=>['ARC',t.id,t.colId,t.title,t.desc||'',t.person||'',t.dept||'',t.priority||'',t.status||'',t.start||'',t.archivedAt||'',JSON.stringify((t.attachments||[]).map(a=>({name:a.name,ext:a.ext,size:a.size,date:a.date,isImage:a.isImage,dataUrl:a.dataUrl})))]);
+  return [...h,...t,...e,...d,...a];
+}
+
 function toCSV(){
   const h=[['TYPE','ID','COL','TITLE','DESC','PERSON','DEPT','PRIORITY','STATUS','START','DEADLINE','CLOSED','ATT']];
   const t=tasks.map(t=>['TASK',t.id,t.colId,t.title,t.desc||'',t.person||'',t.dept||'',t.priority||'',t.status||'',t.start||'',t.deadline||'',t.closed||'',JSON.stringify((t.attachments||[]).map(a=>({name:a.name,ext:a.ext,size:a.size,date:a.date,isImage:a.isImage,dataUrl:a.dataUrl})))]);
@@ -659,8 +664,17 @@ async function saveToSheets(){
     setSS('syncing','Сохранение...');saveLocal();
     const tog=document.getElementById('autoSyncToggle');
     if(tog&&!tog.checked){setSS('ok','Локально');return;}
-    try{await apiCall(`Update Google Sheets ID "${SHEET_ID}". Clear and write this CSV silently:\n\n${toCSV()}`);setSS('ok','Сохранено ✓');}
-    catch(e){setSS('error','Только локально');}
+    try{
+      const payload = toRows();
+      const r = await fetch(GAS_URL, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain'},
+        body: JSON.stringify({action:'write', payload})
+      });
+      const json = await r.json();
+      if(json.ok) setSS('ok','Сохранено ✓');
+      else setSS('error','Ошибка записи');
+    }catch(e){console.error(e);setSS('error','Только локально');}
   },1500);
 }
 function saveLocal(){try{localStorage.setItem('tele_kanban',JSON.stringify({tasks,employees,departments,archived}));}catch(e){}}
